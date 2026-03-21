@@ -1,182 +1,279 @@
-import React, { useState, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Sparkles, Html, ContactShadows, Text } from '@react-three/drei';
+import React, { useState, useRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Environment, Sparkles, Html, ContactShadows, Text, SpotLight, useDepthBuffer } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- COMPOSANT : ANIMATION DE LA CAMÉRA ---
-const CameraRig = ({ isZoomed }) => {
-  useFrame((state) => {
-    // Position de base (vue d'ensemble) vs Position zoomée (devant l'écran)
-    const targetPosition = isZoomed ? new THREE.Vector3(0, 1.5, 2.5) : new THREE.Vector3(0, 2, 6);
-    const targetLookAt = isZoomed ? new THREE.Vector3(0, 1.5, 0) : new THREE.Vector3(0, 1, 0);
+// --- COMPOSANT : CINÉMATIQUE D'ENTRÉE ET RIG AMBIANT ---
+const CinematicRig = () => {
+  const { camera, mouse } = useThree();
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const vec = new THREE.Vector3();
 
-    // Déplacement fluide (interpolation) de la caméra
-    state.camera.position.lerp(targetPosition, 0.05);
+  // Animation d'entrée au chargement
+  useEffect(() => {
+    // Position de départ (plan large et haut)
+    camera.position.set(0, 5, 12);
+    setHasLoaded(true);
+  }, [camera]);
+
+  useFrame((state) => {
+    if (!hasLoaded) return;
+
+    // 1. L'Avancée Cinématique (Fly-In)
+    // On interpolte lentement vers la position de vue du bureau
+    state.camera.position.lerp(vec.set(0, 1.8, 3.5), 0.015);
     
-    // Pour que la caméra regarde toujours au bon endroit de façon fluide
-    const currentLookAt = new THREE.Vector3(0, 0, 0);
-    state.camera.getWorldDirection(currentLookAt);
-    currentLookAt.add(state.camera.position);
-    currentLookAt.lerp(targetLookAt, 0.05);
-    state.camera.lookAt(currentLookAt);
+    // 2. Le Mouvement Ambiant de Parallaxe (Suivi de souris)
+    // Pour donner l'impression de relief quand on bouge la souris
+    state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, mouse.x * 0.5, 0.02);
+    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 1.8 + mouse.y * 0.2, 0.02);
+    
+    // On regarde toujours le centre de l'écran
+    state.camera.lookAt(0, 1.5, 0);
   });
   return null;
 };
 
-// --- COMPOSANT : L'ÉCRAN D'ORDINATEUR AVEC LE CV ---
-const ComputerScreen = ({ isZoomed, setIsZoomed }) => {
-  const [hovered, setHovered] = useState(false);
-
-  // Change le curseur quand on survole l'écran
-  React.useEffect(() => {
-    document.body.style.cursor = hovered ? 'pointer' : 'auto';
-  }, [hovered]);
+// --- COMPOSANT : L'IMAC 3D AVEC CV HD ---
+const IMacWorkstation = () => {
+  const depthBuffer = useDepthBuffer({ size: 1024 });
 
   return (
-    <group position={[0, 1.5, 0]}>
-      {/* Le pied de l'écran */}
-      <mesh position={[0, -0.4, -0.1]}>
-        <boxGeometry args={[0.2, 0.8, 0.1]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-      <mesh position={[0, -0.8, -0.1]}>
-        <boxGeometry args={[0.8, 0.05, 0.4]} />
-        <meshStandardMaterial color="#222" />
+    <group position={[0, 0, 0]}>
+      {/* 1. LA TABLE (Noyer Massif Texturé) */}
+      <mesh position={[0, 0.3, 0]} receiveShadow>
+        <boxGeometry args={[8, 0.6, 4]} />
+        <meshPhysicalMaterial 
+          color="#221100" // Couleur noyer
+          roughness={0.9} 
+          metalness={0.05}
+          reflectivity={0.2}
+          clearcoat={0.1}
+          flatShading={true} // Pour accentuer le grain
+        />
       </mesh>
 
-      {/* L'écran principal (cliquable) */}
-      <mesh 
-        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
-        onPointerOut={(e) => { e.stopPropagation(); setHovered(false); }}
-        onClick={(e) => { e.stopPropagation(); setIsZoomed(true); }}
-      >
-        <boxGeometry args={[3, 2, 0.1]} />
-        <meshStandardMaterial color={hovered ? "#555" : "#111"} emissive={hovered ? "#003366" : "#000"} emissiveIntensity={0.5} />
+      {/* 2. L'IMAC (Structure Aluminium brossé) */}
+      <group position={[0, 1.5, 0]}>
+        {/* Le Pied */}
+        <mesh position={[0, -0.6, -0.2]} castShadow>
+          <cylinderGeometry args={[0.05, 0.1, 1, 32]} />
+          <meshStandardMaterial color="#b0b0b0" metalness={0.8} roughness={0.2} />
+        </mesh>
+        <mesh position={[0, -1.1, -0.2]} castShadow>
+          <boxGeometry args={[1, 0.05, 0.8]} />
+          <meshStandardMaterial color="#b0b0b0" metalness={0.8} roughness={0.2} />
+        </mesh>
+
+        {/* Le Corps de l'écran (Finesse Ultra HD) */}
+        <mesh castShadow>
+          <boxGeometry args={[3.6, 2.3, 0.1]} />
+          <meshStandardMaterial color="#e0e0e0" metalness={0.9} roughness={0.1} />
+        </mesh>
         
-        {/* Le CV affiché EN HTML DANS LA 3D ! */}
-        <Html 
-          transform 
-          wrapperClass="htmlScreen" 
-          distanceFactor={1.5} 
-          position={[0, 0, 0.06]}
-          style={{ opacity: isZoomed ? 1 : 0.8, transition: 'opacity 0.5s' }}
-        >
-          <div className="w-[800px] h-[500px] bg-zinc-950 text-white p-8 rounded-lg border-2 border-blue-500 overflow-y-auto shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-            <h1 className="text-4xl font-bold mb-2 text-blue-500">Yanis Nedjar</h1>
-            <h2 className="text-2xl mb-6 text-zinc-300">Employé Polyvalent - Leclerc Saran</h2>
-            <p className="mb-4">BUT Informatique | Prêt pour le Drive et la mise en rayon (dès 5h00).</p>
-            <div className="grid grid-cols-2 gap-4 mt-8">
-               <div className="bg-zinc-900 p-4 rounded border border-zinc-700">
-                 <h3 className="font-bold text-blue-400">Compétences</h3>
-                 <ul className="list-disc pl-4 mt-2">
-                   <li>Outils numériques (Scannettes)</li>
-                   <li>Gestion des stocks / Logistique</li>
-                   <li>Débogage et Rigueur</li>
-                 </ul>
-               </div>
-               <div className="bg-zinc-900 p-4 rounded border border-zinc-700 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-800" onClick={() => window.location.href="mailto:yanisnedjar5@gmail.com"}>
-                  <p className="font-bold text-xl">Me Contacter</p>
-                  <p className="text-zinc-400">yanisnedjar5@gmail.com</p>
-               </div>
+        {/* L'ÉCRAN (La dalle Rétina avec le CV) */}
+        <mesh position={[0, 0, 0.051]}>
+          <planeGeometry args={[3.45, 2.15]} />
+          {/* Matériau Dalle de Verre HD */}
+          <meshPhysicalMaterial 
+            color="#000" 
+            roughness={0} 
+            metalness={0.1}
+            transmission={0.05} // Un peu de transparence pour la profondeur
+            thickness={0.01} // Finesse de la dalle
+            reflectivity={1}
+            clearcoat={1}
+          /> 
+          
+          <Html 
+            transform 
+            wrapperClass="htmlScreenHD" 
+            distanceFactor={1.7} 
+            position={[0, 0, 0.005]}
+            className="select-none"
+          >
+            {/* DESIGN DU CV : MODERNE, PRO, LECLERC-FRIENDLY */}
+            <div className="w-[1000px] h-[620px] bg-[#08080a] text-white p-12 rounded-lg border-2 border-[#00529c]/50 shadow-[0_0_60px_rgba(0,82,156,0.3)] overflow-y-auto font-sans">
+              <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6">
+                <div>
+                    <h1 className="text-5xl font-extrabold tracking-tighter text-white">Yanis Nedjar</h1>
+                    <p className="text-2xl text-[#f37021] font-medium mt-1">Candidature Employé Polyvalent - E.Leclerc Saran</p>
+                </div>
+                <div className="text-right text-zinc-400">
+                    <p>yanisnedjar5@gmail.com</p>
+                    <p>06 51 85 47 XX</p>
+                    <p>Réside à 5 min du magasin</p>
+                </div>
+              </div>
+
+              <p className="text-xl text-zinc-300 leading-relaxed max-w-4xl mb-12 font-light">
+                Étudiant en BUT Informatique, je combine la **rigueur analytique** du code avec une **disponibilité totale** (matins dès 5h, week-ends). Mon profil tech me rend immédiatement opérationnel sur vos outils de gestion de stock et systèmes Drive.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-[#101014] p-8 rounded-2xl border border-zinc-800 hover:border-[#00529c] transition-colors">
+                  <h3 className="text-2xl font-bold text-[#00529c] mb-5">Atouts Opérationnels</h3>
+                  <ul className="space-y-3 text-lg text-zinc-300 list-disc pl-5">
+                    <li>Maîtrise instantanée des scannettes et PDA.</li>
+                    <li>Rigueur absolue dans la préparation de commandes.</li>
+                    <li>Ponctualité garantie (Localisation à Saran).</li>
+                  </ul>
+                </div>
+                <div className="bg-[#101014] p-8 rounded-2xl border border-zinc-800 hover:border-[#f37021] transition-colors">
+                  <h3 className="text-2xl font-bold text-[#f37021] mb-5">Disponibilité</h3>
+                  <ul className="space-y-3 text-lg text-zinc-300 list-disc pl-5">
+                    <li>Horaires décalés : Matins (5h-9h), Après-midi, Soirs.</li>
+                    <li>Samedis et Dimanches matins inclus.</li>
+                    <li>Jours fériés et Vacances scolaires.</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="mt-12 text-center">
+                 {/* Déclic Interactif (Zoom) */}
+                 <button className="bg-[#00529c] hover:bg-[#003366] px-8 py-3 rounded-full font-bold text-white transition-colors">
+                   Agrandir mon CV
+                 </button>
+              </div>
+              
+              <div className="mt-8 text-center text-zinc-500 italic">
+                Flashez le QR Code sur mon CV papier pour revenir à cette expérience 3D.
+              </div>
             </div>
-            {isZoomed && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsZoomed(false); }}
-                  className="mt-8 bg-zinc-800 hover:bg-zinc-700 px-6 py-2 rounded-full border border-zinc-600 transition-colors"
-                >
-                  ← Retour au bureau
-                </button>
-            )}
-          </div>
-        </Html>
-      </mesh>
+          </Html>
+        </mesh>
+      </group>
     </group>
   );
 };
 
-// --- COMPOSANT : EASTER EGGS E.LECLERC ---
-const EasterEggs = () => {
+// --- COMPOSANT : LE TOTEM LECLERC (Référence Vraie & Poussée) ---
+const LeclercTotemTrophy = () => {
+  const totemRef = useRef();
+
+  // Déclic interactif (Vibration au clic)
+  const handleTotemClick = () => {
+    totemRef.current.rotation.y += Math.PI * 0.1;
+    setTimeout(() => totemRef.current.rotation.y -= Math.PI * 0.1, 150);
+  };
+
   return (
-    <group position={[2, 0.9, 1]}>
-      {/* Caisse "Marque Repère" */}
-      <mesh position={[0, 0.25, 0]}>
-        <boxGeometry args={[0.8, 0.5, 0.6]} />
-        <meshStandardMaterial color="#e0e0e0" />
+    <group position={[2.5, 0.6, 0.8]} rotation={[0, -0.4, 0]} ref={totemRef} onClick={handleTotemClick}>
+      {/* Socle en Marbre Noir */}
+      <mesh castShadow>
+        <boxGeometry args={[0.6, 0.1, 0.6]} />
+        <meshPhysicalMaterial color="#111" roughness={0.1} metalness={0.5} reflectivity={1} />
       </mesh>
-      {/* Ruban Bleu Leclerc */}
-      <mesh position={[0, 0.25, 0.31]}>
-         <planeGeometry args={[0.8, 0.1]} />
-         <meshBasicMaterial color="#00529c" /> {/* Bleu Leclerc */}
+      {/* Corps en Verre Stylisé */}
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <boxGeometry args={[0.3, 0.6, 0.3]} />
+        <meshPhysicalMaterial 
+          color="#00529c" 
+          transmission={0.9} 
+          thickness={0.5} 
+          roughness={0} 
+          reflectivity={1}
+          clearcoat={1}
+        />
       </mesh>
-      {/* Ruban Orange Leclerc */}
-      <mesh position={[0, 0.15, 0.31]}>
-         <planeGeometry args={[0.8, 0.05]} />
-         <meshBasicMaterial color="#f37021" /> {/* Orange Leclerc */}
-      </mesh>
-      <Text position={[0, 0.35, 0.31]} fontSize={0.08} color="#00529c" anchorX="center" anchorY="middle">
-        MARQUE REPERE
+      {/* Le Logo "L" Gravé en Or (Le vrai logo, pas placebo) */}
+      <Text position={[0, 0.35, 0.16]} fontSize={0.2} color="#f37021" anchorX="center" anchorY="middle" font="https://fonts.gstatic.com/s/montserrat/v25/JTUHjIg1_i6t8kCHKm4MV9W_mLeL.ttf">
+        L
+      </Text>
+      <Text position={[0, 0.08, 0]} fontSize={0.06} color="#aaa" rotation={[-Math.PI / 2, 0, 0]} anchorX="center">
+        EFFICACITÉ DRIVE 2026
       </Text>
     </group>
   );
 };
 
-export default function App() {
-  const [isZoomed, setIsZoomed] = useState(false);
-
-  // Si on clique dans le vide, on dézoome
-  const handlePointerMissed = () => {
-    if (isZoomed) setIsZoomed(false);
-  };
-
+// --- COMPOSANT : AMBIANCE & EASTER EGGS ---
+const AmbianceProps = () => {
   return (
-    <div className="w-screen h-screen bg-zinc-950 font-sans">
+    <group position={[-2.5, 0.6, 1.2]}>
+      {/* Tasse de café fumante (Ambiance) */}
+      <mesh castShadow position={[0, 0.1, 0]}>
+         <cylinderGeometry args={[0.1, 0.1, 0.2]} />
+         <meshStandardMaterial color="#fff" roughness={0.2}/>
+      </mesh>
+      <Html position={[0, 0.25, 0]} center>
+         <div className="animate-pulse text-zinc-600 text-xs">♨</div>
+      </Html>
       
-      {/* UI Superposée en 2D (Indications) */}
-      <div className="absolute top-8 left-0 w-full text-center z-10 pointer-events-none">
-        <h1 className="text-white text-3xl font-bold tracking-widest drop-shadow-md">
-          BUREAU VIRTUEL
+      {/* Scanner PDA Réaliste (Easter Egg Leclerc) */}
+      <group position={[0.5, 0.1, -0.3]} rotation={[0, 0.5, 0]}>
+         <mesh castShadow>
+            <boxGeometry args={[0.15, 0.3, 0.05]} />
+            <meshStandardMaterial color="#333" roughness={0.5}/>
+         </mesh>
+         <mesh position={[0, 0, 0.026]}>
+            <planeGeometry args={[0.13, 0.25]} />
+            <meshBasicMaterial color="#00529c" emissive="#00529c" emissiveIntensity={1} /> {/* Écran allumé */}
+         </mesh>
+      </group>
+    </group>
+  );
+};
+
+export default function App() {
+  return (
+    <div className="w-screen h-screen bg-[#050506] font-sans">
+      
+      {/* UI d'introduction (2D superposée) */}
+      <div className="absolute top-10 left-0 w-full text-center z-10 pointer-events-none">
+        <h1 className="text-white text-5xl font-black tracking-tighter opacity-80 drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+          CANDIDATURE 2.0
         </h1>
-        <p className="text-zinc-400 mt-2 animate-pulse">
-          {isZoomed ? "Lisez mon CV. Cliquez en dehors pour reculer." : "Survolez l'écran et cliquez pour vous installer."}
+        <p className="text-zinc-500 text-lg mt-2 tracking-widest uppercase">
+          Yanis Nedjar • Leclerc Saran
         </p>
       </div>
 
-      {/* LA SCÈNE 3D */}
-      <Canvas shadows camera={{ position: [0, 2, 6], fov: 45 }} onPointerMissed={handlePointerMissed}>
-        <color attach="background" args={['#0a0a0c']} /> {/* Fond très sombre */}
+      {/* LA SCÈNE 3D HD */}
+      <Canvas shadows camera={{ fov: 40 }} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}>
+        {/* Fond très sombre */}
+        <color attach="background" args={['#050506']} /> 
+
+        {/* --- LUMIÈRES CINÉMATIQUES (Ultra Poussées) --- */}
+        <ambientLight intensity={0.1} />
         
-        {/* Lumière d'ambiance tamisée */}
-        <ambientLight intensity={0.2} />
-        
-        {/* Lumière "Lampe de bureau" dirigée vers l'écran */}
-        <spotLight 
-          position={[0, 4, 2]} 
-          angle={0.5} 
+        {/* Lumière principale : Spot directionnel "Twilight" */}
+        <SpotLight 
+          position={[0, 6, 2]} 
+          angle={0.4} 
           penumbra={1} 
-          intensity={80} 
-          color="#aeb9cc" 
+          intensity={120} 
+          color="#a1b5cc" 
           castShadow 
+          attenuation={5}
+          anglePower={5}
         />
 
-        {/* Particules de poussière flottantes dans la lumière */}
-        <Sparkles count={150} scale={10} size={2} speed={0.4} opacity={0.3} color="#ffffff" />
+        {/* Lumière d'accentuation "Orange Leclerc" sur le Trophée */}
+        <spotLight 
+          position={[3, 3, 1]} 
+          angle={0.2} 
+          penumbra={1} 
+          intensity={30} 
+          color="#f37021" 
+        />
 
-        {/* Le Bureau (Table) */}
-        <mesh position={[0, 0.4, 0]} receiveShadow>
-          <boxGeometry args={[6, 0.8, 3]} />
-          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
-        </mesh>
+        {/* Particules de poussière dans l'air (Ambiance) */}
+        <Sparkles count={300} scale={12} size={2.5} speed={0.3} opacity={0.2} color="#ffffff" />
 
-        <ComputerScreen isZoomed={isZoomed} setIsZoomed={setIsZoomed} />
-        <EasterEggs />
+        {/* --- COMPOSANTS DE SCÈNE --- */}
+        <IMacWorkstation />
+        <LeclercTotemTrophy />
+        <AmbianceProps />
 
-        {/* Ombres de contact au sol pour plus de réalisme */}
-        <ContactShadows position={[0, 0, 0]} scale={10} blur={2} far={4} opacity={0.5} />
+        {/* Ombres de contact au sol (Réalisme accrue) */}
+        <ContactShadows position={[0, 0, 0]} scale={15} blur={2.5} far={4} opacity={0.6} />
         
-        {/* Environnement HDRI pour de beaux reflets (nuit urbaine) */}
-        <Environment preset="city" />
+        {/* Environnement urbain pour les reflets complexes sur l'Alu */}
+        <Environment preset="city" blur={1} />
         
-        <CameraRig isZoomed={isZoomed} />
+        {/* Le Rig Cinématique */}
+        <CinematicRig />
       </Canvas>
     </div>
   );
