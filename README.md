@@ -1,13 +1,13 @@
 # Portfolio 3D Interactif (Three.js & React)
 
-<div align="center">
-  [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-  [![Three.js](https://img.shields.io/badge/Three.js-0.183-black?logo=threedotjs&logoColor=white)](https://threejs.org/)
-  [![React Three Fiber](https://img.shields.io/badge/R3F-9.5-black?logo=react&logoColor=white)](https://docs.pmnd.rs/react-three-fiber)
-  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-  [![Framer Motion](https://img.shields.io/badge/Framer_Motion-12.38-black?logo=framer&logoColor=white)](https://www.framer.com/motion/)
-  [![Démo en ligne](https://img.shields.io/badge/D%C3%A9mo-Explorer_en_3D-success)](https://nedjaryanis.github.io/cv-leclerc/)
-</div>
+<p align="center">
+  <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black" alt="React" /></a>
+  <a href="https://threejs.org"><img src="https://img.shields.io/badge/Three.js-0.183-black?logo=threedotjs&logoColor=white" alt="Three.js" /></a>
+  <a href="https://docs.pmnd.rs/react-three-fiber"><img src="https://img.shields.io/badge/React_Three_Fiber-9.5-black?logo=react&logoColor=white" alt="R3F" /></a>
+  <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?logo=tailwind-css&logoColor=white" alt="Tailwind CSS" /></a>
+  <a href="https://www.framer.com/motion"><img src="https://img.shields.io/badge/Framer_Motion-12.38-black?logo=framer&logoColor=white" alt="Framer Motion" /></a>
+  <a href="https://nedjaryanis.github.io/cv-leclerc/"><img src="https://img.shields.io/badge/Démo_en_ligne-Explorer_en_3D-success" alt="Démo" /></a>
+</p>
 
 <br/>
 
